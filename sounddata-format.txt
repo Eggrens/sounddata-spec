@@ -1,0 +1,145 @@
+___________________________________________________________________________________________________________
+\\\                       SoundData.rom File Format Specification by Eggrens 							\\\
+\\\ Special thanks to:								   													\\\
+\\\		- FAST6191 and RyanPenfold on GBATemp, 															\\\
+\\\		  for providing helpful information and inspiring me to start this project in the first place	\\\
+-----------------------------------------------------------------------------------------------------------
+
+This is a rough (and ongoing) document for understanding the layout of the SoundData.rom file format, found in games developed by Amaze Entertainment.
+I am currently using a ROM of The Sims 2 DS (dumped from my own cartridge) for reference. I have not yet checked other games, such as The Urbz DS, to see if this specification lines up. 
+However, according to RyanPenfold on GBATemp, swapping one game's SoundData.rom file with another's does not crash the game. This suggests they use the same audio engine, and thus the specification should be valid
+I'm using this text file to collect my findings for this format in a nice, accessible place.
+
+SoundData.rom is interesting because it seems that rather than keeping module files intact, they're all split up into different regions. Additionally some header data, like magic numbers, filenames, and certain fields are completely omitted. 
+This makes identifying what format is being used for modules, instruments, samples and patterns quite difficult, but they seem to loosely follow Impulse Tracker (.it) and/or Scream Tracker (.s3m) formats. Perhaps this was done to save cartridge space instead of storing unnecessary data on it.
+Instrument and sample data seem to be stored in raw PCM and AD-PCM formats, some 8-bit, others 16-bit.
+Because of the loose resemblance to IT and S3M format, my analysis into how the SoundData format works is assuming that its file headers and instrument/sample/pattern data work like IT/S3M data does.
+
+I would appreciate any help/contributions to figure out this format, or at least continuing the project if I lose interest at some point :)
+
+---	SoundData.rom Header ---
+
+		  0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
+		+---------------+---------------+---------------+---------------+
+0000:	| IMPM Bank	    | ITI Bank      | ITS Bank      | Pattern Bank  |
+		+---------------+---------------+---------------+---------------+	
+0010:	| InstDataPtrs  | Unknown1		| Note Tables	| Sample Tables	|
+		+---------------+---------------+---------------+---------------+
+0020:	| Unknown2		| Unknown3		| Rest of data................. |
+		+---------------+---------------+-------------------------------+
+
+Remember to flip for endianess when following pointers (e.g. pointer 28 00 00 00 means go to address 0x00000028)
+
+IMPM Bank:		Pointer to where module header ptrs start (this is always 28 00 00 00, which is also the length of the header (0x28))
+ITI Bank: 		"	"	" instrument header ptrs start
+ITS Bank: 		"	"	" sample header ptrs start
+Pattern Bank: 	"	"	" pattern data pointers start
+InstDataPtrs:	"	"	" sample/instrument data pointers start
+Unknown1-3:		Each field points to different collections of pointers, but what they're used for is unknown so far.
+
+Note Tables:	Pointer to where note tables are; correlates with Sample Tables
+Sample Tables:	"	"	" sample tables are; correlates with Note Tables
+
+In IT instrument format, a note-sample table is used to specify the samples that play for each note of the instrument. These are stored as note/sample pairs, and is always 240 bytes in length.
+Each pair contains a note value first (ranges from 0->119, i.e. C-0 -> B-9), followed by a sample value (ranges from 1->99, 0 = no sample).
+
+Unlike IT, SoundData.rom splits these pairs, separating the note and sample tables into their own files. 
+This was perhaps done to save space, since I assume usually note-sample tables look something like this (where XX = the same sample number): 00XX 01XX 02XX 03XX ... etc etc ... 77XX
+So, instead of having redundant 120-byte long tables for these instruments, just store one table of 00-77 and assign it to the instrument's respective sample table as needed. 
+Because of this efficiency, The Sims 2 DS only has 18 note tables and 79 sample tables -> 61 unneeded note tables * 120 bytes = 7.32 KB saved.
+
+--- Module Header ---
+
+		  0   1   2   3   4   5   6   7   8   9   A   B  
+		+---+---+---+---+---+---+---+---+-------+---+---+
+0000:	|GV |IT |IS |Unk|OrN|InN|SmN|PtN| 0000h |ChN|00h|
+		+---+---+---+---+---+---+---+---+-------+---+---+
+000C:	| Channel Volume, length = ChN (max 64 bytes)...|
+		+-----------------------------------------------+
+xxx1:	| Channel Pan, length = ChN (max 64 bytes)..... |
+		+-----------------------------------------------+
+xxx2:	| Orders, length = OrN..........................|
+		+-----------------------------------------------+
+xxx3:	| Instruments, length = InN * 2.................|
+		+-----------------------------------------------+
+xxx4:	| Samples, length = SmN * 2.....................|
+		+-----------------------------------------------+
+xxx5:	| Patterns, length = PtN * 2....................|
+		+-----------------------------------------------+
+
+Address xxx1 = 0xC + ChN
+		xxx2 = 0xC + ChN*2
+		xxx3 = 0xC + ChN*2 + OrN
+		xxx4 = 0xC + ChN*2 + OrN + InN*2
+		xxx5 = 0xC + ChN*2 + OrN + InN*2 + SmN*2
+
+GV:		Global Volume, from 0->128
+IT:		Initial Tempo
+IS:		Initial Speed
+Unk:	Unknown... Seems to only ever be 0x17 or 0x14. Likely could be the Master Volume field like in Scream Tracker format, where the lower 7 bits are the volume, and bit 8 = stereo (1) / mono (0); used for mixing stuff
+		So...
+			0x17 -> 00010111
+				 -> bits 1-7: 0001011, bit 8: 1
+				 -> volume 11, stereo
+			0x14 -> 00010100
+				 -> bits 1-7: 0001010, bit 8: 0
+				 -> volume 10, mono
+		Or maybe this works like IT format (mixing volume 0->128). I'm not too sure. Perhaps it's bit flags for something else
+
+OrN:	Num of Orders
+InN:	Num of Instruments 
+SmN:	Num of Samples
+PtN:	Num of Patterns
+ChN:	Num of Channels
+
+Channel Volume:	Length = Num of Channels. Each byte represents volume of a channel, from 0->64
+Channel Pan:	Length = Num of Channels. Each byte has panning value for channel. Ranges from 0->64 (0 left, 64 right. 32 central).
+					According to IT format, 100 = surround sound, and 128 = disabled channel
+Orders:			Length = Num of Orders. Indicates order in which patterns are played, each byte being a pattern number. 255 (0xFF) = end of song, 254 (0xFE) = skip to next order
+
+Instruments:	Length = Num of Instruments * 2.
+					Seems to work like parapointers in Scream Tracker Format. Each instrument represented by 2 bytes, which somehow correlate to their instrument header locations within SoundData.rom.
+					In s3m, these parapointers can be used to calculate the file offset to where the instrument header is in the module file.
+						s3m: parapointer file offset Y is (Y - offset of file header)/16
+					This doesn't exactly apply here, however, since the module file data is all split up.
+					My current theory is that these 2 bytes per instrument are like index numbers (e.g. instrument bytes 1A 00 -> refer to instrument with index 0x001A).
+Samples:		Length = Num of Samples * 2.
+					Also seems to work like the instruments do. Sometimes a sample can be represented by 0xFFFF, and I'm not sure what this means yet.
+Patterns:		Length = Num of Patterns * 2.
+					Same deal as the Instruments.
+					
+--- Instrument Header ---
+
+Assuming the instruments follow IT instrument format, this should be way the header is laid out (minus filename, instrument name, note-sample table and envelope):
+
+		  0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
+		+---+---+---+---+-------+---+---+---+---+---+---+-------+---+---+
+0000:	|NNA|Unk|DCT|DCA|FadeOut|PPS|PPC|GbV|DfP|RV |RP |TrkVers|NoS|00h|
+		+---+---+---+---+-------+---+---+---+---+---+---+-------+---+---+
+0010:	|IFC|IFR|MCh|MPr|MIDIBnk| 0000h |
+		+---+---+---+---+-------+-------+
+
+
+--- Sample Header ---
+
+Assuming the samples follow IT sample format, this should be the way the header is laid out (minus filename, sample name, and SmpPoint field):
+
+		  0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
+		+---------------+---+---+---+---+---------------+---------------+
+0000:	| Index	    	|GvL|Flg|Vol|DfP| Length		| Loop Start	|
+		+---------------+---+---+---+---+---------------+---------------+
+0010:	| Loop End    	| C5 Speed 		| SusLoopBegin	| SusLoopEnd	|
+		+---------------+---------------+---------------+---------------+
+0020:	|ViS|ViD|ViR|ViT|
+		+---+---+---+---+
+
+--- Pattern Header ---
+
+Unlike IT patterns, there is no row count listed in the header (like S3M). Instead, just the length is listed. Pattern begins after the length field and 0000h.
+
+		  0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
+		+-------+-------+-----------------------------------------------+
+0000:	|PatLen | 0000h | Pattern data (length = PatLen)................|
+		+---------------+-----------------------------------------------+
+		
+The pattern data is likely encoded using Impulse Tracker's method. A simple script should be able to properly decode this... if we knew the row count.
