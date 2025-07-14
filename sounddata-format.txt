@@ -133,7 +133,7 @@ FadeOut:    According to IT specs: Ranges between 0 and 128, but the fadeout "Co
 PPS:        Pitch-pan separation, range -32 -> +32
 PPC:        Pitch-pan center; ranges from 0-119 inclusive (C-0 to B-9). This value tends to be either 0x3C (C-5) or 0x30 (C-4)
 GbV:        Global volume, ranges from 0->128
-DfP:        Default pan, 0->64. If bit 8 (&128) is ON => don't use pan
+DfP:        Default pan, 0->64. If bit 7 (&128) is ON => don't use pan
 RV:         Random volume variation (percentage)
 RP:         Random panning variation (percentage)
 
@@ -152,7 +152,7 @@ Assuming the samples follow IT sample format, this should be the way the header 
 0000:   | Index         |GvL|Flg|Vol|Unk| Length        | Loop Start    |
         +---------------+---+---+---+---+---------------+---------------+
 0010:   | Loop End      | C5 Speed      | SusLoopBeg    | SusLoopEnd    |
-        +---------------+---------------+---------------+---------------+
+        +---+---+---+---+---------------+---------------+---------------+
 0020:   |ViS|ViD|ViR|ViT|
         +---+---+---+---+
 
@@ -184,7 +184,7 @@ Unlike IT patterns, there is no row count listed in the header (like S3M). Inste
           0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
         +-------+-------+-----------------------------------------------+
 0000:   |PatLen | 0000h | Pattern data (length = PatLen)................|
-        +---------------+-----------------------------------------------+
+        +-------+-------+-----------------------------------------------+
         
 PatLen: Length of the packed pattern, not including the 4-byte header. We can assume that, like IT, the pattern data can never be more than 64 kilobytes long (0xFFFF).
 
