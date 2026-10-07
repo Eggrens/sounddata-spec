@@ -16,6 +16,7 @@ Table of Contents
 1. Introduction
 
 2. StockerSound (SoundData.rom) File Layout
+    2.1. Number of Files
 
 3. File Header Layout
 
