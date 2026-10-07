@@ -49,6 +49,9 @@ from a SoundData.rom file as .wav files. It can also export the modules in Sound
 parser. The parser currently works with The Sims 2 DS, The Urbz: Sims in the City DS, and Spyro: Shadow Legacy. Huge thanks to EshayDev for their work reverse engineering
 the sound engine, writing the parser and their discoveries of how the StockerSound format works.
 
+I also wrote a Python script to export samples from the file as signed 16-bit PCM .wav files. You can find this in the "audio-exporter" folder. Instructions on
+how to use it are in the project's README.md.
+
 I would appreciate any help/contributions to figure out this format. I'm quite new to ROM analysis and tracker software in general, so if you have some expertise in these
 fields, feel free to reach out to me via Bluesky (@eggrens.bsky.social) or Discord (@eggrens). :)
 
