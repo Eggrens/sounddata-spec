@@ -1,0 +1,7 @@
+stockersound/.venv/
+stockersound/__pycache__/
+stockersound/data/
+stockersound/output/
+*.exe
+audio-exporter/out/
+.vscode
