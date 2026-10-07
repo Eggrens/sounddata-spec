@@ -1,74 +1,206 @@
-___________________________________________________________________________________________________________
-\\\                       SoundData.rom File Format Specification by Eggrens                            \\\
-\\\ Special thanks to:                                                                                  \\\
-\\\     - FAST6191 and RyanPenfold on GBATemp,                                                          \\\
-\\\       for providing helpful information and inspiring me to start this project in the first place   \\\
------------------------------------------------------------------------------------------------------------
+┌────────────────────────────────────────────────────────────────────┐
+│       StockerSound (SoundData.rom) File Format Specification       │
+│                                                                    │
+│       Written by: Eggrens                      Version:  2.0       │
+│                                                                    │
+│       Special thanks:                                              │
+│           - FAST6191 and RyanPenfold from GBATemp,                 │
+│             for providing helpful information and inspiring        │
+│             me to start this project in the first place.           │
+│           - EshayDev, for additional research and writing          │
+│             the StockerSound parser.                               │
+└────────────────────────────────────────────────────────────────────┘
 
-This is a rough (and ongoing) document for understanding the layout of the SoundData.rom file format, found in games developed by Amaze Entertainment.
-I am currently using a ROM of The Sims 2 DS (dumped from my own cartridge) for reference. I have not yet checked other games, such as The Urbz DS, to see if this specification lines up.
-However, according to RyanPenfold on GBATemp, swapping one game's SoundData.rom file with another's does not crash the game (until a certain point).
-This suggests they use the same audio engine, and thus the specification should be valid for all Amaze Entertainment DS games.
-I'm using this text file to collect my findings for this format in a nice, accessible place.
+Table of Contents
 
-SoundData.rom is interesting because it seems that rather than keeping module files intact, they're all split up into different regions. Additionally some header data, like magic numbers, filenames, and certain fields are completely omitted or replaced with other data.
-This makes identifying what format is being used for modules, instruments, samples and patterns quite difficult, but they seem to loosely follow Impulse Tracker (.it) and/or Scream Tracker (.s3m) formats, with some custom data fields used in headers.
-Instrument and sample data seem to be stored in raw PCM and AD-PCM formats, some 8-bit, others 16-bit.
-Because of the loose resemblance to IT and S3M format, my analysis into how the SoundData format works is assuming that its file headers and instrument/sample/pattern data work like IT/S3M data does.
+1. Introduction
 
-I would appreciate any help/contributions to figure out this format, or at least continuing the project if I lose interest at some point :)
+2. StockerSound (SoundData.rom) File Layout
 
---- SoundData.rom Header ---
+3. File Header Layout
+
+4. Module Header Layout
+
+5. Instrument Header Layout
+    5.1. Envelope Layout
+
+6. Sample Header Layout
+
+7. Pattern Header Layout
+
+8. Raw Audio Data Format
+
+
+
+┌────────────────────────────────────────────────────────────────────┐
+│ 1. Introduction                                                    │
+└────────────────────────────────────────────────────────────────────┘
+
+This document is a rough, ongoing attempt to understand the layout of the "StockerSound" (SoundData.rom) audio format, found in Nintendo DS games developed by studios
+under Amaze Entertainment (such as Griptonite Games). The name "StockerSound" is derived from Ian Stocker, the main composer of such games as The Sims 2 DS,
+The Urbz: Sims in the City DS, etc. It is known that Stocker composed his soundtracks as Impulse Tracker modules (.it files). These modules would then be rendered by
+the game's sound engine to play the tracks. These games store all data related to audio (IT module data, raw PCM samples, sound effects and voice lines) in a single file
+named "SoundData.rom", an odd format compared to most Nintendo DS games. Stocker's IT modules, however, are not kept intact. Each module's data is split up into specific
+regions of the file, which then get reassembled by the sound engine to render a song. Some information is omitted as well, such as filenames for the
+modules/instruments/samples. This fragmented approach is likely done to save space by eliminating any redundant or unnecessary data.
+
+Included in the repo, in the "stockersound" folder, is the StockerSound parser written by EshayDev. This Python script emulates the DS's ARM9 processor to render modules
+from a SoundData.rom file as .wav files. It can also export the modules in SoundData.rom as playable IT modules. See the README in the stockersound folder for how to use the
+parser. The parser currently works with The Sims 2 DS, The Urbz: Sims in the City DS, and Spyro: Shadow Legacy. Huge thanks to EshayDev for their work reverse engineering
+the sound engine, writing the parser and their discoveries of how the StockerSound format works.
+
+I would appreciate any help/contributions to figure out this format. I'm quite new to ROM analysis and tracker software in general, so if you have some expertise in these
+fields, feel free to reach out to me via Bluesky (@eggrens.bsky.social) or Discord (@eggrens). :)
+
+
+
+┌────────────────────────────────────────────────────────────────────┐
+│ 2. StockerSound (SoundData.rom) File Layout                        │
+└────────────────────────────────────────────────────────────────────┘
+
+The file is organized into the following regions, from start to end:
+
+┌───────────────────────────────┐
+│ File Header                   │
+├───────────────────────────────┤
+│ Module Bank                   │
+├───────────────────────────────┤
+│ Instrument Bank               │
+├───────────────────────────────┤
+│ Sample Bank                   │
+├───────────────────────────────┤
+│ Pattern Bank                  │
+├───────────────────────────────┤
+│ Raw Audio Bank                │
+├───────────────────────────────┤
+│ Envelope Bank                 │
+├───────────────────────────────┤
+│ Note Table Bank               │
+├───────────────────────────────┤
+│ Sample Table Bank             │
+├───────────────────────────────┤
+│ Envelope Ticks Bank           │
+├───────────────────────────────┤
+│ Envelope Values Bank          │
+├───────────────────────────────┤
+│ Module Data                   │
+├───────────────────────────────┤
+│ Instrument Data               │
+├───────────────────────────────┤
+│ Sample Data                   │
+├───────────────────────────────┤
+│ Envelopes                     │
+├───────────────────────────────┤
+│ Envelope Ticks                │
+├───────────────────────────────┤
+│ Envelope Values               │
+├───────────────────────────────┤
+│ Note Table Data               │
+├───────────────────────────────┤
+│ Sample Table Data             │
+├───────────────────────────────┤
+│ Pattern Data                  │
+├───────────────────────────────┤
+│ Raw Audio Data                │
+└───────────────────────────────┘
+
+Each "bank" holds a list of pointers that each reference data in their respective data region. You can think of these banks as a directory listing, which lists all
+different types of "files" and where they are located. All header data and pointers are in Little Endian byte order (e.g. a value of "02 00 00 00" is read as 0x00000002).
+When following pointers, you must flip for Endianness to get the correct address of the data (e.g. following a pointer "08 2D 00 00" -> go to address 0x00002D08).
+
+One notable thing about the StockerSound format is how it splits up instrument note-sample tables into separate regions. In Impulse Tracker, a note-sample table
+specifies what samples play for each note of the instrument. This information is stored as pairs, with a note value (from 0->119, aka C-0 -> B-9) followed by a
+sample value (1->99, 0 = no sample), totaling 240 bytes in length. StockerSound instead stores sequences of note/sample values on their own and recombines them
+to form the note-sample table when needed. This is done to save space, since it avoids storing many redundant note-sample tables. For example, most instruments
+use a note-sample table of
+
+    00 XX 01 XX 02 XX 03 XX .................. 77 XX
+
+where XX is the sample number. If we know the instrument will use the note sequence 0x00-77, then we can just store one instance of it instead of having many similar
+note-sample tables for other instruments. Because of this efficiency, The Sims 2 DS only has 18 note tables and 79 sample tables -> 61 unneeded note tables * 120 bytes = 7.32 KB saved.
+
+Instrument envelopes are also split up into different regions: each for the headers, ticks and values. This also was likely done to save space, since it avoids having store a lot
+of unnecessary 0's compared to IT envelopes. See Section 5.1 for more information.
+
+
+
+2.1. Number of Files
+
+Below is a table listing the number of "files" (i.e. pointers) for each region in the games researched so far, for reference.
+
+                       ┌─────┬─────┬─────┬─────┬──────┬─────┬──────┬──────┬─────┬─────┐
+                       │ NoM │ NoI │ NoS │ NoP │ NoRA │ NoE │ NoNT │ NoST │ NoT │ NoV │
+┌──────────────────────┼─────┼─────┼─────┼─────┼──────┼─────┼──────┼──────┼─────┼─────┤
+│ The Sims 2 DS        │   45│  999│ 1445│  383│  1331│  264│    18│    79│  201│  150│
+├──────────────────────┼─────┼─────┼─────┼─────┼──────┼─────┼──────┼──────┼─────┼─────┤
+│ The Urbz DS          │   61│ 1826│  768│  882│   618│  203│    29│    59│  160│   87│
+├──────────────────────┼─────┼─────┼─────┼─────┼──────┼─────┼──────┼──────┼─────┼─────┤
+│ Spyro: Shadow Legacy │   39│  362│  784│ 1106│   745│  269│     7│   283│  250│  222│
+├──────────────────────┼─────┼─────┼─────┼─────┼──────┼─────┼──────┼──────┼─────┼─────┤
+
+
+
+NoM:    Number of modules
+NoI:    "      "  instruments
+NoS:    "      "  samples
+NoP:    "      "  patterns
+NoRA:   "      "  raw audio samples
+NoE:    "      "  envelopes
+NoNT:   "      "  note tables
+NoST:   "      "  sample tables
+NoT:    "      "  envelope ticks
+NoV:    "      "  envelope values
+
+I use these variables in some of the header layout sections, so refer back to here if you need to know what they mean.
+
+
+
+┌────────────────────────────────────────────────────────────────────┐
+│ 3. File Header Layout                                              │
+└────────────────────────────────────────────────────────────────────┘
 
           0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
-        +---------------+---------------+---------------+---------------+
-0000:   | IMPM Bank     | ITI Bank      | ITS Bank      | Pattern Bank  |
-        +---------------+---------------+---------------+---------------+
-0010:   | InstDataPtrs  | Unknown1      | Note Tables   | Sample Tables |
-        +---------------+---------------+---------------+---------------+
-0020:   | Unknown2      | Unknown3      | Rest of data................. |
-        +---------------+---------------+-------------------------------+
+        ┌───────────────┬───────────────┬───────────────┬───────────────┐
+0000:   │ Module Bank   │ Inst Bank     │ Sample Bank   │ Pattern Bank  │
+        ├───────────────┼───────────────┼───────────────┼───────────────┤
+0010:   │ RawAudio Bank │ Envelope Bank │ Note Tbl Bank │ Samp Tbl Bank │
+        ├───────────────┼───────────────┼───────────────┴───────────────┘
+0020:   │ EnvTicks Bank │ EnvValues Bnk │
+        └───────────────┴───────────────┘
 
-Headers in SoundData.rom are all in Little Endian byte order.
-Remember to flip for endianess when following pointers (e.g. pointer 28 00 00 00 means go to address 0x00000028)
+Module Bank:    Pointer to start of module bank
+Inst Bank:      "       "  "     "  instrument bank
+Sample Bank:    "       "  "     "  sample bank
+Pattern Bank:   "       "  "     "  pattern bank
+RawAudio Bank:  "       "  "     "  raw audio bank
+Envelope Bank:  "       "  "     "  envelope bank
+Note Tbl Bank:  "       "  "     "  note table bank
+Samp Tbl Bank:  "       "  "     "  sample table bank
+EnvTicks Bank:  "       "  "     "  envelope ticks bank
+EnvValues Bnk:  "       "  "     "  envelope values bank
 
-IMPM Bank:      Pointer to where module header ptrs start (this is always 28 00 00 00, which is also the length of the header (0x28))
-ITI Bank:       "   "   " instrument header ptrs start
-ITS Bank:       "   "   " sample header ptrs start
-Pattern Bank:   "   "   " pattern data pointers start
-InstDataPtrs:   "   "   " sample/instrument data pointers start
-Unknown1-3:     Each field points to different collections of pointers, but what they're used for is unknown so far.
-                It's likely one of these fields is used to point to instrument envelopes, since note and sample tables have their own fields.
 
-Note Tables:    Pointer to where note tables are; correlates with Sample Tables
-Sample Tables:  "   "   " sample tables are; correlates with Note Tables
 
-In IT instrument format, a note-sample table is used to specify the samples that play for each note of the instrument. These are stored as note/sample pairs, and is always 240 bytes in length.
-Each pair contains a note value first (ranges from 0->119, i.e. C-0 -> B-9), followed by a sample value (ranges from 1->99, 0 = no sample).
-
-Unlike IT, SoundData.rom splits these pairs, separating the note and sample tables into their own files.
-This was perhaps done to save space, since I assume usually note-sample tables look something like this (where XX = the same sample number): 00 XX 01 XX 02 XX 03 XX ... etc etc ... 77 XX
-So, instead of having repeating 120-byte long patterns of note tables, just store one table of 0x00-77 and assign it to the instrument's respective sample table as needed.
-Because of this efficiency, The Sims 2 DS only has 18 note tables and 79 sample tables -> 61 unneeded note tables * 120 bytes = 7.32 KB saved.
-
---- Module Header ---
+┌────────────────────────────────────────────────────────────────────┐
+│ 4. Module Header Layout                                            │
+└────────────────────────────────────────────────────────────────────┘
 
           0   1   2   3   4   5   6   7   8   9   A   B
-        +---+---+---+---+---+---+---+---+-------+---+---+
-0000:   |GV |IT |IS |Unk|OrN|InN|SmN|PtN| 0000h |ChN|00h|
-        +---+---+---+---+---+---+---+---+-------+---+---+
-000C:   | Channel Volume, length = ChN (max 64 bytes)...|
-        +-----------------------------------------------+
-xxx1:   | Channel Pan, length = ChN (max 64 bytes)..... |
-        +-----------------------------------------------+
-xxx2:   | Orders, length = OrN..........................|
-        +-----------------------------------------------+
-xxx3:   | Instruments, length = InN * 2.................|
-        +-----------------------------------------------+
-xxx4:   | Samples, length = SmN * 2.....................|
-        +-----------------------------------------------+
-xxx5:   | Patterns, length = PtN * 2....................|
-        +-----------------------------------------------+
+        ┌───┬───┬───┬───┬───┬───┬───┬───┬───────┬───┬───┐
+0000:   │GbV│InT│InS│Flg│OrN│InN│SmN│PtN│ 0000h │ChN│00h│
+        ├───┴───┴───┴───┴───┴───┴───┴───┴───────┴───┴───┤
+000C:   │ Channel Volume, length = ChN (max 64 bytes)...│
+        ├───────────────────────────────────────────────┤
+xxx1:   │ Channel Pan, length = ChN (max 64 bytes)......│
+        ├───────────────────────────────────────────────┤
+xxx2:   │ Orders, length = OrN..........................│
+        ├───────────────────────────────────────────────┤
+xxx3:   │ Instruments, length = InN * 2.................│
+        ├───────────────────────────────────────────────┤
+xxx4:   │ Samples, length = SmN * 2.....................│
+        ├───────────────────────────────────────────────┤
+xxx5:   │ Patterns, length = PtN * 2....................│
+        └───────────────────────────────────────────────┘
 
 Address xxx1 = 0xC + ChN
         xxx2 = 0xC + ChN*2
@@ -76,116 +208,226 @@ Address xxx1 = 0xC + ChN
         xxx4 = 0xC + ChN*2 + OrN + InN*2
         xxx5 = 0xC + ChN*2 + OrN + InN*2 + SmN*2
 
-GV:     Global Volume, from 0->128
-IT:     Initial Tempo
-IS:     Initial Speed
-Unk:    Unknown... Seems to only ever be 0x17 or 0x14. Possibly works like IT format (mixing volume 0->128)
+GbV:    Global Volume, ranges from 0->128
+InT:    Initial tempo of song
+InS:    Initial speed of song
 
-OrN:    Num of Orders
-InN:    Num of Instruments
-SmN:    Num of Samples
-PtN:    Num of Patterns
-ChN:    Num of Channels
+Flg:    Bit flags, same as IT:
+            Bit 0: On = Stereo, Off = Mono
+            Bit 1: Mixing optimizations. If on, no mixing occurs when volume at mixing time is 0
+            Bit 2: On = Use instruments, Off = Use samples
+            Bit 3: On = Linear slides, Off = Amiga slides
+            Bit 4: On = Old Effects, Off = IT Effects
+                        Differences:
+                            - Vibrato is updated EVERY frame in IT mode, whereas
+                              it is updated every non-row frame in other formats.
+                              Also, it is two times deeper with Old Effects ON
+                            - Command Oxx will set the sample offset to the END
+                              of a sample instead of ignoring the command under
+                              old effects mode.
+            Bit 5: On = Link Effect G's memory with Effect E/F. Also
+                            Gxx with an instrument present will cause the
+                            envelopes to be retriggered. If you change a
+                            sample on a row with Gxx, it'll adjust the
+                            frequency of the current note according to:
 
-Channel Volume: Length = Num of Channels. Each byte represents volume of a channel, from 0->64
-Channel Pan:    Length = Num of Channels. Each byte has panning value for channel. Ranges from 0->64 (0 left, 64 right. 32 central).
-                    According to IT format, 100 = surround sound, and 128 = disabled channel
-Orders:         Length = Num of Orders. Indicates order in which patterns are played, each byte being a pattern number. 255 (0xFF) = end of song, 254 (0xFE) = skip to next order
+                              NewFrequency = OldFrequency * NewC5 / OldC5;
+        In The Sims 2 DS, this value is either 0x17 (stereo, mix optimizations, use instruments, Amiga slides, old effects)
+        or 0x14 (mono, no mix optimization, use instruments, Amiga slides, old effects).
 
-Instruments:    Length = Num of Instruments * 2.
-                    Seems to work like parapointers in Scream Tracker Format. Each instrument is represented by 2 bytes, which somehow correlate to their instrument header locations within SoundData.rom.
-                    In s3m, these parapointers can be used to calculate the file offset to where the instrument header is in the module file.
-                        s3m: parapointer file offset Y is (Y - offset of file header)/16
-                    This doesn't exactly apply here, however, since the module file data is all split up.
-                    My current theory is that these 2 bytes per instrument are like index numbers (e.g. instrument bytes 1A 00 -> refer to instrument number 0x001A), since they tend to be listed in ascending order.
-Samples:        Length = Num of Samples * 2.
-                    Also seems to work like the instruments do. Sometimes a sample can be represented by 0xFFFF, and I'm not sure what this means yet.
-Patterns:       Length = Num of Patterns * 2.
-                    Same deal as the Instruments.
+OrN:    Number of orders in song
+InN:    Number of instruments in song
+SmN:    Number of samples in song
+PtN:    Number of patterns in song
+ChN:    Number of channels used in song
 
---- Instrument Header ---
-
-Assuming the instruments follow IT instrument format, this should be way the header is laid out (minus filename, instrument name, note-sample table, envelope, and some other fields):
-
-Note: most of the definitions for these fields are straight from ITTECH.txt, cuz I currently don't have a good grasp on what these fields actually do lol
-
-          0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
-        +---+---+---+---+-------+---+---+---+---+---+---+-------+---+---+
-0000:   |NNA|Un1|DCT|DCA|FadeOut|PPS|PPC|GbV|DfP|RV |RP |NoteTbl|SampTbl|
-        +---+---+---+---+-------+---+---+---+---+---+---+-------+---+---+
-0010:   | Unknown2              | 0000h |
-        +---+---+---+---+-------+-------+
-
-NNA:        New Note Action; value is only ever 0, 1, 2 or 3.
-                0 = Cut, 1 = Continue, 2 = Note off, 3 = Note fade
-Unknown1:   Unknown, maybe unused. Usually is 0, but exactly 1 instrument in The Sims 2 DS has a value of 1 in this field
-DCT:        Duplicate Check Type
-                0 = Off, 1 = Note, 2 = Sample, 3 = Instrument
-DCA:        Duplicate Check Action
-                0 = Cut, 1 = Note off, 2 = Note fade
-FadeOut:    According to IT specs: Ranges between 0 and 128, but the fadeout "Count" is 1024
-                Fade applied when:
-                1) Note fade NNA is selected and triggered (by another note)
-                2) Note off NNA is selected with no volume envelope
-                   or volume envelope loop
-                3) Volume envelope end is reached
-
-PPS:        Pitch-pan separation, range -32 -> +32
-PPC:        Pitch-pan center; ranges from 0-119 inclusive (C-0 to B-9). This value tends to be either 0x3C (C-5) or 0x30 (C-4)
-GbV:        Global volume, ranges from 0->128
-DfP:        Default pan, 0->64. If bit 7 (&128) is ON => don't use pan
-RV:         Random volume variation (percentage)
-RP:         Random panning variation (percentage)
-
-NoteTbl:    Index number of which note table to use for this instrument. In The Sims 2 DS, ranges from 0->17, since there are 18 note tables.
-SampTbl:    Index number of which sample table to use for this instrument. In The Sims 2 DS, ranges from 0->78, since there are 79 sample tables.
-
-Unknown2:   Currently unknown fields. Some missing information from IT instruments include the Number of Samples associated with the instrument, and also envelopes, so maybe these fields relate to those.
+Channel Volume:
+    Length = number of channels. Each byte represents the volume of a channel from 0->64.
+    Usually set to 64 (0x40) for each channel.
+Channel Pan:
+    Length = number of channels. Each byte represents the panning value of a channel from 0->64 (0 left, 32 central, 64 right).
+    Usually set to 32 (0x20) for each channel.
+Orders:
+    Length = number of orders. Lists the order of patterns to play, with each byte representing a pattern number.
+    Valid pattern numbers are 0->119. 255 = end of song, 254 = skip to next order.
+Instruments:
+    Length = number of instruments * 2. Each instrument is represented by a 2 byte index number (e.g. 1A 00 -> instrument number 0x001A).
+Samples:
+    Length = number of samples * 2. Like instruments, each is represented by a 2 byte index number.
+    Sometimes, a sample may be represented as 0xFFFF. What this means is unclear.
+Patterns:
+    Length = number of patterns * 2. Each pattern is represented by a 2 byte index number.
 
 
---- Sample Header ---
 
-Assuming the samples follow IT sample format, this should be the way the header is laid out (minus filename, sample name, and SmpPoint field):
+┌────────────────────────────────────────────────────────────────────┐
+│ 5. Instrument Header Layout                                        │
+└────────────────────────────────────────────────────────────────────┘
 
           0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
-        +---------------+---+---+---+---+---------------+---------------+
-0000:   | Index         |GvL|Flg|Vol|Unk| Length        | Loop Start    |
-        +---------------+---+---+---+---+---------------+---------------+
-0010:   | Loop End      | C5 Speed      | SusLoopBeg    | SusLoopEnd    |
-        +---+---+---+---+---------------+---------------+---------------+
-0020:   |ViS|ViD|ViR|ViT|
-        +---+---+---+---+
+        ┌───┬───┬───┬───┬───────┬───┬───┬───┬───┬───┬───┬───────┬───────┐
+0000:   │NNA│DCT│DCA│00h│FadeOut│PPS│PPC│GbV│DfP│RnV│RnP│NoteTbl│SampTbl│
+        ├───┴───┼───┴───┼───────┼───┴───┼───┴───┴───┴───┴───────┴───────┘
+0010:   │VolEnv │PanEnv │PitEnv │ 0000h │
+        └───────┴───────┴───────┴───────┘
 
-Index:      Sample index number
-GvL:        Global volume, from 0->64
-Flg:        Bit flags. Unsure if they work the same as in ITS format. Bit 0 seems to always be set. This is most likely used to determine whether a sample loops, the type of sample (PCM or ADPCM), and if it's 8-bit or 16-bit.
-                In The Sims 2 DS, this field is one of the following values: 0x01, 0x09, 0x11, 0x19, 0x41, or 0x51
-Vol:        Default volume for sample, from 0->64
-Unk:        Unknown. Only ever seems to be 0x00 or 0x20. Could be default panning value (DfP) as in ITS format, but bit 7 is never set so the panning value can't be used. Probably not convert (Cvt) flags either.
+NNA:    New Note Action:
+            0 = Cut, 1 = Continue, 2 = Note off, 3 = Note fade
+DCT:    Duplicate Check Type:
+            0 = Off, 1 = Note, 2 = Sample, 3 = Instrument
+DCA:    Duplicate Check Action
+            0 = Cut, 1 = Note off, 2 = Note fade
 
-Length:     Sample length in number of SAMPLES, not bytes
-Loop Start: Sample num where loop begins
-Loop End:   Sample num that is AFTER the end of loop
-C5 Speed:   Sample rate in bytes for the note C-5.
+FadeOut:
+    Ranges between 0->128. Actual fadeout "count" is 1024. Fadeout is applied when:
+        1) Note fade NNA is selected and triggered (by another note)
+        2) Note off NNA is selected with no volume envelope
+           or volume envelope loop
+        3) Volume envelope end is reached
 
-SusLoopBeg: Sample num where sustain loop begins                } Both of these fields don't seem to be used in The Sims 2 DS. Always 00 00 for both
-SusLoopEnd: Sample num that is AFTER the end of sustain loop    }
+PPS:    Pitch-pan separation, ranges from -32 to +32.
+        In The Sims 2 DS, this is always 0.
+PPC:    Pitch-pan center; ranges from 0->119 (C-0 to B-9).
+        In The Sims 2 DS, this tends to be either 0x3C (C-5) or 0x30 (C-4).
+GbV:    Global Volume, ranges from 0->128
+DfP:    Default panning value, ranges from 0->64 (0 left, 32 central, 64 right).
+        If Bit 7 is on, the panning value isn't used.
 
-ViS:        Vibrato speed, from 0->64
-ViD:        Vibrato depth, i.e. how far vibrato can go off tune in each direction, from 0->64
-ViR:        Vibrato sweep; delays the gain of the vibrato, from 0->64
-ViT:        Vibrato wave type.
-                0 = Sine, 1 = Ramp down Sawtooth, 2 = Square, 3 = Random Sine
+RnV:    Random volume variation (percentage).
+        This is never used in The Sims 2 DS.
+RnP:    Random panning variation.
+        Few instruments in The Sims 2 DS use this field. If they do, the value is either 10 or 16.
 
---- Pattern Header ---
+NoteTbl:
+    Which note table to use for this instrument. Ranges from 0->NoNT-1 (e.g. 0->17 for The Sims 2 DS).
+SampTbl:
+    Which sample table to use for this instrument. Ranges from 0->NoST-1 (e.g. 0->78 for The Sims 2 DS).
 
-Unlike IT patterns, there is no row count listed in the header (like S3M). Instead, just the length is listed along with 00 00. Pattern begins after.
+VolEnv:
+    Which envelope to use for the volume for this instrument. Ranges from 0->NoE-1 (e.g. 0->263 for The Sims 2 DS).
+    If this value is 0xFFFF, the instrument does not set a volume envelope.
+PanEnv:
+    Which envelope to use for the panning for this instrument. Ranges from 0->NoE-1.
+    If this value is 0xFFFF, the instrument does not set a panning envelope.
+PitEnv:
+    Which envelope to use for the pitch for this instrument. Ranges from 0->NoE-1.
+    If this value is 0xFFFF, the instrument does not set a pitch envelope.
+
+
+
+5.1. Envelope Layout
+
+Follows IT's envelope layout for the first 6 bytes. Envelopes can either be a volume, panning or pitch envelope, depending on
+how it's referenced by the instrument header.
+
+          0   1   2   3   4   5   6   7   8   9   A   B
+        ┌───┬───┬───┬───┬───┬───┬───────┬───────┬───────┐
+0000:   │Flg│NNP│LpB│LpE│SLB│SLE│ Ticks │ Vals  │ 0000h │
+        └───┴───┴───┴───┴───┴───┴───────┴───────┴───────┘
+
+Flg:    Bit flags:
+            Bit 0: Envelope on/off, 1 = on, 0 = off
+            Bit 1: Loop on/off, 1 = on, 0 = off
+            Bit 2: SusLoop on/off, 1 = on, 0 = off
+        For pitch envelopes only:
+            Bit 7: Use pitch envelope as filter envelope instead.
+            (This bit seems to be ignored by the sound engine. Will always be used for pitch, not filter.)
+
+NNP:    Number of node points (max 25 in IT)
+LpB:    Loop beginning
+LpE:    Loop end
+SLB:    Sustain loop beginning
+SLE:    Sustain loop end
+
+Ticks:  Which envelope ticks to use. Ranges from 0->NoT-1.
+Vals:   Which envelope values to use. Ranges from 0->NoV-1.
+
+IT envelopes contain a set of 25 node points, totalling 75 bytes. Each node point has a "value" (1 byte, 0->64 for volume, -32->+32 for panning or pitch) and
+a "tick" number (2 bytes, 0->9999). Only the first NNP node points matter; the rest of the node points will have a value and tick of 0.
+This means an envelope may store a lot of 0's if it has a small number of node points.
+
+StockerSound only stores the values and ticks an envelope needs for its node points, so it doesn't need to store so many unnecessary 0's.
+For example, say an envelope has 2 node points, and it refers to values "40 40 00 00" and ticks "00 00 64 00". The engine maps each byte from the values one-to-one with
+2 bytes from the ticks for the node points. So for our node points, we'd have:
+
+    Node point 1: 0x40 0x0000
+    Node point 2: 0x40 0x0064
+
+Although there are two extra value bytes of 0 stored, only the first 2 value bytes are read, since there's only 2 node points.
+
+
+
+┌────────────────────────────────────────────────────────────────────┐
+│ 6. Sample Header Layout                                            │
+└────────────────────────────────────────────────────────────────────┘
 
           0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
-        +-------+-------+-----------------------------------------------+
-0000:   |PatLen | 0000h | Pattern data (length = PatLen)................|
-        +-------+-------+-----------------------------------------------+
-        
-PatLen: Length of the packed pattern, not including the 4-byte header. We can assume that, like IT, the pattern data can never be more than 64 kilobytes long (0xFFFF).
+        ┌───────────────┬───┬───┬───┬───┬───────────────┬───────────────┐
+0000:   │ Index         │GbV│Flg│DfV│Unk│ Length        │ Loop Begin    │
+        ├───────────────┼───┴───┴───┴───┼───────────────┼───────────────┤
+0010:   │ Loop End      │ C5 Speed      │ SusLoop Begin │ SusLoop End   │
+        ├───┬───┬───┬───┼───────────────┴───────────────┴───────────────┘
+0020:   │ViS│ViD│ViR│ViT│
+        └───┴───┴───┴───┘
 
-The pattern data is likely encoded using Impulse Tracker's method. ITTECH.txt provides some pseudocode to decode the pattern data, but since we don't know the row count, we'd have to read until PatLen bytes have been read.
+Index:  The index number of the raw audio sample to use. This ranges from 0->NoS-1 (e.g. 0->1330 for The Sims 2 DS).
+        The raw audio sample can be PCM data for an instrument, or IMA-ADPCM data for SFX / voice lines.
+
+GbV:    Global volume, ranges from 0->64
+Flg:    Bit flags, should be similar to IT:
+            Bit 0. On = sample associated with header.
+            Bit 1. On = 16 bit, Off = 8 bit.
+            Bit 2. On = stereo, Off = mono.
+            Bit 3. On = compressed sample.
+            Bit 4. On = Use loop
+            Bit 5. On = Use sustain loop
+            Bit 6. On = Ping Pong loop, Off = Forwards loop
+            Bit 7. On = Ping Pong Sustain loop, Off = Forwards Sustain loop
+
+        Bit 0 is always set. The compressed sample flag seems to indicate whether the sample is PCM or IMA-ADPCM
+        (off = PCM, on = IMA-ADPCM). Bits 6 & 7 are ignored by the audio engine, since the sample headers only provide
+        loop values for forward loops.
+DfV:    Default volume for sample, ranges from 0->64.
+Unk:    Unknown field. In The Sims 2 DS, this is set to either 0x0, 0x1C or 0x20.
+
+Length:
+    The length of the sample in SAMPLES, not bytes.
+Loop Begin:
+    The sample number where loop begins.
+Loop End:
+    The sample number that is AFTER end of loop.
+C5 Speed:
+    The sample rate in bytes for the note C-5.
+    Common values for this are: 0x2000 (8192 Hz), 0x4000 (16384 Hz), 0x5DC0 (24000 Hz), 0x8000 (32768 Hz), or 0xAC44 (44100 Hz).
+SusLoop Begin:
+    The sample number where sustain loop begins.
+SusLoop End:
+    The sample number that is AFTER end of sustain loop.
+
+ViS:    Vibrato speed, ranges from 0->64
+ViD:    Vibrato depth, ranges from 0->64
+ViR:    Vibrato rate. The rate at which vibrato is applied, ranges from 0->64
+ViT:    Vibrato waveform type:
+            0 = Sine, 1 = Ramp down Sawtooth, 2 = Square, 3 = Random Sine
+
+
+┌────────────────────────────────────────────────────────────────────┐
+│ 7. Pattern Header Layout                                           │
+└────────────────────────────────────────────────────────────────────┘
+
+          0   1   2   3   4...
+        ┌───────┬───────┬───────────────────────────────────────────────┐
+0000:   │ PatLn │ 0000h │ Pattern Data (length = PatLn).................│
+        └───────┴───────┴───────────────────────────────────────────────┘
+
+PatLn:  Packed pattern data length (not including the 4-byte header). The length of the pattern data + the 4-byte header will always be less than 64 KiB.
+
+Unlike IT, there is no row count in the header. So, unpacking this pattern requires reading until PatLn bytes have been read.
+
+
+
+┌────────────────────────────────────────────────────────────────────┐
+│ 8. Raw Audio Data Format                                           │
+└────────────────────────────────────────────────────────────────────┘
+
+Raw audio samples are encoded as signed 8-bit mono PCM. SFX and voice lines are encoded as IMA-ADPCM.
