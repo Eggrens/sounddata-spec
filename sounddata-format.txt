@@ -256,11 +256,14 @@ Orders:
     Valid pattern numbers are 0->119. 255 = end of song, 254 = skip to next order.
 Instruments:
     Length = number of instruments * 2. Each instrument is represented by a 2 byte index number (e.g. 1A 00 -> instrument number 0x001A).
+    The index number ranges from 0->NoI-1. (e.g. 0->998 for The Sims 2 DS)
 Samples:
     Length = number of samples * 2. Like instruments, each is represented by a 2 byte index number.
+    The index number ranges from 0->NoS-1. (e.g. 0->1444 for The Sims 2 DS)
     Sometimes, a sample may be represented as 0xFFFF. What this means is unclear.
 Patterns:
     Length = number of patterns * 2. Each pattern is represented by a 2 byte index number.
+    The index number ranges from 0->NoP-1. (e.g. 0->382 for The Sims 2 DS)
 
 
 
@@ -374,7 +377,7 @@ Although there are two extra value bytes of 0 stored, only the first 2 value byt
 0020:   │ViS│ViD│ViR│ViT│
         └───┴───┴───┴───┘
 
-Index:  The index number of the raw audio sample to use. This ranges from 0->NoS-1 (e.g. 0->1330 for The Sims 2 DS).
+Index:  The index number of the raw audio sample to use. This ranges from 0->NoRA-1 (e.g. 0->1330 for The Sims 2 DS).
         The raw audio sample can be PCM data for an instrument, or IMA-ADPCM data for SFX / voice lines.
 
 GbV:    Global volume, ranges from 0->64
